@@ -2,9 +2,13 @@
 
 package com.minichain.minichainsvideostreaming
 
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.hardware.Camera
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Process
@@ -16,6 +20,7 @@ import android.widget.Toast
 import kotlin.system.exitProcess
 
 class MainActivity : AppCompatActivity() {
+    private lateinit var broadcastReceiver: MainActivityBroadcastReceiver
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -24,10 +29,43 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onStart() {
+        Log.l("MainActivity: onStart")
+        super.onStart()
+        registerMainActivityBroadcastReceiver()
+    }
+
+    override fun onPause() {
+        Log.l("MainActivity: onPause")
+        super.onPause()
+        try {
+            unregisterReceiver(broadcastReceiver)
+        } catch (e: IllegalArgumentException) {
+            Log.e("MainActivity: error un-registering receiver $e")
+        }
+    }
+
     private fun init() {
         Log.l("Init MainActivity!")
 
         setContentView(R.layout.activity_main)
+
+        //Start service:
+        val serviceIntent = Intent(applicationContext, MainService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                applicationContext.startForegroundService(serviceIntent)
+                Log.l("Start Foreground Service")
+            } catch (e: Exception) {
+                applicationContext.startService(serviceIntent)
+                Log.l("Start Service")
+            }
+        } else {
+            Log.l("Start Service")
+            applicationContext.startService(serviceIntent)
+        }
+
+        registerMainActivityBroadcastReceiver()
 
         val itHasCamera = packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)
         if (itHasCamera) {
@@ -51,6 +89,7 @@ class MainActivity : AppCompatActivity() {
         val floatingActionButton: View = findViewById(R.id.floating_action_button)
         floatingActionButton.setOnClickListener {
             Toast.makeText(this, "Floating Action Button Pressed!", Toast.LENGTH_SHORT).show()
+            sendBroadcastToService(BroadcastMessage.FRAME)
         }
     }
 
@@ -87,6 +126,14 @@ class MainActivity : AppCompatActivity() {
         exitProcess(-1)
     }
 
+    override fun onDestroy() {
+        Log.l("onDestroy $this")
+        super.onDestroy()
+        // If there is a Service running...
+        val serviceIntent = Intent(applicationContext, MainService::class.java)
+        applicationContext.stopService(serviceIntent)
+    }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         Log.l("Request Permissions Result, requestCode: $requestCode, permissions: $permissions, grantResults: $grantResults")
@@ -98,6 +145,56 @@ class MainActivity : AppCompatActivity() {
                     closeApp()
                 }
             }
+        }
+    }
+
+    private fun sendBroadcastToService(broadcastMessage: BroadcastMessage) {
+        sendBroadcastToService(broadcastMessage, null)
+    }
+
+    private fun sendBroadcastToService(broadcastMessage: BroadcastMessage, bundle: Bundle?) {
+        Log.l("MainActivityLog: sending broadcast $broadcastMessage")
+        try {
+            val broadCastIntent = Intent()
+            broadCastIntent.action = broadcastMessage.toString()
+            if (bundle != null) {
+                broadCastIntent.putExtras(bundle)
+            }
+            sendBroadcast(broadCastIntent)
+        } catch (ex: java.lang.Exception) {
+            ex.printStackTrace()
+        }
+    }
+
+    inner class MainActivityBroadcastReceiver : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+//            Log.l("MainActivity:: Broadcast received. Context: " + context + ", intent:" + intent.action)
+            try {
+                val broadcast = intent.action
+                val extras = intent.extras
+                if (broadcast != null) {
+                    if (broadcast == BroadcastMessage.FRAME.toString()) {
+                        Log.l("MainActivity: Broadcast Received: $broadcast")
+                    } else {
+                        Log.l("MainActivity: Unknown broadcast received")
+                    }
+                }
+            } catch (ex: java.lang.Exception) {
+                ex.printStackTrace()
+            }
+        }
+    }
+
+    private fun registerMainActivityBroadcastReceiver() {
+        broadcastReceiver = MainActivityBroadcastReceiver()
+        try {
+            val intentFilter = IntentFilter()
+            for (i in BroadcastMessage.values().indices) {
+                intentFilter.addAction(BroadcastMessage.values()[i].toString())
+            }
+            registerReceiver(broadcastReceiver, intentFilter)
+        } catch (ex: java.lang.Exception) {
+            ex.printStackTrace()
         }
     }
 }
