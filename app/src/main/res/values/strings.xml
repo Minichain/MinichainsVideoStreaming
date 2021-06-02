@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Minichain\'s Video Streaming</string>
+    <string name="settings">Settings</string>
+    <string name="close_app">Close App</string>
+</resources>
