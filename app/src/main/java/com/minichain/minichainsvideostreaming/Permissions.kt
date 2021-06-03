@@ -15,6 +15,7 @@ object Permissions {
         val recordAudioPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
         val readExternalStoragePermission = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE)
         val internetPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.INTERNET)
+        val accessNetworkStatePermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_NETWORK_STATE)
 
         val listPermissionsNeeded: MutableList<String> = ArrayList()
         if (cameraPermission != PackageManager.PERMISSION_GRANTED) {
@@ -28,6 +29,9 @@ object Permissions {
         }
         if (internetPermission != PackageManager.PERMISSION_GRANTED) {
             listPermissionsNeeded.add(Manifest.permission.INTERNET)
+        }
+        if (accessNetworkStatePermission != PackageManager.PERMISSION_GRANTED) {
+            listPermissionsNeeded.add(Manifest.permission.ACCESS_NETWORK_STATE)
         }
 
         if (listPermissionsNeeded.isNotEmpty()) {

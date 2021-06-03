@@ -7,6 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.graphics.Rect
+import android.graphics.YuvImage
 import android.hardware.Camera
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
@@ -17,10 +19,12 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.Toast
+import java.io.ByteArrayOutputStream
 import kotlin.system.exitProcess
 
 class MainActivity : AppCompatActivity() {
     private lateinit var broadcastReceiver: MainActivityBroadcastReceiver
+    private lateinit var imageByteArray: ByteArray
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -84,12 +88,27 @@ class MainActivity : AppCompatActivity() {
             val cameraPreview = CameraPreview(this, camera)
             val preview: FrameLayout = this.findViewById(R.id.camera_preview)
             preview.addView(cameraPreview)
+
+            val previewFormat = cameraPreview.mCamera.parameters.previewFormat
+            val previewSize = cameraPreview.mCamera.parameters.previewSize
+            cameraPreview.mCamera.setPreviewCallback { data, camera ->
+                // All bytes are in YUV format, therefore, to use the YUV helper functions, we are putting in a YUV object
+                Log.l("Preview format: $previewFormat")
+                val yuvImage = YuvImage(data, previewFormat, previewSize.width, previewSize.height, null)
+                val rect = Rect(0, 0, previewSize.width, previewSize.height)
+                val outputStream = ByteArrayOutputStream()
+                // Image has now been converted to the jpg format and bytes have been written to the outputStream object
+                yuvImage.compressToJpeg(rect, 80, outputStream)
+                imageByteArray = outputStream.toByteArray()
+            }
         }
 
         val floatingActionButton: View = findViewById(R.id.floating_action_button)
         floatingActionButton.setOnClickListener {
             Toast.makeText(this, "Floating Action Button Pressed!", Toast.LENGTH_SHORT).show()
-            sendBroadcastToService(BroadcastMessage.FRAME)
+            val bundle = Bundle()
+            bundle.putByteArray("byteArray", imageByteArray)
+            sendBroadcast(BroadcastMessage.FRAME, bundle)
         }
     }
 
@@ -148,12 +167,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun sendBroadcastToService(broadcastMessage: BroadcastMessage) {
-        sendBroadcastToService(broadcastMessage, null)
+    private fun sendBroadcast(broadcastMessage: BroadcastMessage) {
+        sendBroadcast(broadcastMessage, null)
     }
 
-    private fun sendBroadcastToService(broadcastMessage: BroadcastMessage, bundle: Bundle?) {
-        Log.l("MainActivityLog: sending broadcast $broadcastMessage")
+    private fun sendBroadcast(broadcastMessage: BroadcastMessage, bundle: Bundle?) {
+        Log.l("Sending Broadcast $broadcastMessage")
         try {
             val broadCastIntent = Intent()
             broadCastIntent.action = broadcastMessage.toString()

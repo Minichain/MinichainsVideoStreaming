@@ -1,19 +1,14 @@
 package com.minichain.minichainsvideostreaming
 
 import android.content.Context
-import android.graphics.Rect
-import android.graphics.YuvImage
 import android.hardware.Camera
 import android.view.SurfaceHolder
 import android.view.SurfaceView
-import java.io.ByteArrayOutputStream
-import java.io.DataOutputStream
 import java.io.IOException
-import java.net.Socket
 
 /** A basic Camera preview class */
 @Suppress("DEPRECATION")
-class CameraPreview(context: Context, private val mCamera: Camera) : SurfaceView(context), SurfaceHolder.Callback {
+class CameraPreview(context: Context, val mCamera: Camera) : SurfaceView(context), SurfaceHolder.Callback {
 
     private val mHolder: SurfaceHolder = holder.apply {
         // Install a SurfaceHolder.Callback so we get notified when the
@@ -53,44 +48,11 @@ class CameraPreview(context: Context, private val mCamera: Camera) : SurfaceView
         startPreview()
     }
 
-    var outStream: DataOutputStream? = null
-
     private fun startPreview() {
         mCamera.apply {
             try {
                 setPreviewDisplay(holder)
                 startPreview()
-
-                /*
-                try {
-                    outStream = DataOutputStream(Socket("192.168.1.46", 8001).getOutputStream())
-                } catch (e: java.lang.Exception) {
-                    e.printStackTrace()
-                }
-
-                val previewSize = mCamera.parameters.previewSize
-                val previewFormat = mCamera.parameters.previewFormat
-                mCamera.setPreviewCallback { data, camera ->
-                    // All bytes are in YUV format, therefore, to use the YUV helper functions, we are putting in a YUV object
-                    val yuvImage = YuvImage(data, previewFormat, previewSize.width, previewSize.height, null)
-                    val rect = Rect(0, 0, previewSize.width, previewSize.height)
-                    val outputStream = ByteArrayOutputStream()
-                    // Image has now been converted to the jpg format and bytes have been written to the outputStream object
-                    yuvImage.compressToJpeg(rect, 80, outputStream)
-
-                    val tempArray: ByteArray = outputStream.toByteArray()
-
-                    if (outStream != null) {
-                        Log.l("OutStream: $outStream")
-                        outStream!!.writeInt(tempArray.size)
-                        outStream!!.write(tempArray)
-                        outStream!!.flush()
-                    }
-
-//                    Log.l("Frame! data size: " + data.size)
-//                    Log.l("Frame rate: " + camera.parameters.previewFrameRate)
-                }
-                */
                 Log.l("Starting Preview")
             } catch (e: IOException) {
                 Log.l("Error setting camera preview: ${e.message}")

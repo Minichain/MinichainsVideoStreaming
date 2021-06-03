@@ -14,6 +14,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import java.io.DataOutputStream
+import java.net.InetSocketAddress
 import java.net.Socket
 
 
@@ -59,9 +60,8 @@ class MainService : Service() {
                 if (broadcast != null) {
                     if (broadcast == BroadcastMessage.FRAME.toString()) {
                         Log.l("MainServiceLog: Broadcast Received: $broadcast")
-
-                        val tempArray: ByteArray = byteArrayOf(0x2E, 0x38)
-
+//                        val tempArray: ByteArray = "hello".toByteArray()
+                        val tempArray: ByteArray = extras?.getByteArray("byteArray")!!
                         val sendBytesTask = SendBytesTask()
                         sendBytesTask.execute(tempArray)
 
@@ -82,9 +82,6 @@ class MainService : Service() {
                 intentFilter.addAction(BroadcastMessage.values()[i].toString())
             }
 
-//            intentFilter.addAction(Intent.ACTION_MEDIA_BUTTON)
-            intentFilter.addAction(Intent.ACTION_HEADSET_PLUG)
-
             registerReceiver(broadcastReceiver, intentFilter)
         } catch (ex: Exception) {
             ex.printStackTrace()
@@ -102,10 +99,20 @@ class MainService : Service() {
 
             try {
                 if (byteArray[0] != null && byteArray.isNotEmpty()) {
-                    outStream = DataOutputStream(Socket("192.168.1.46", 8001).getOutputStream())
+                    val host = "192.168.1.46"
+                    val port = 8000
+                    Log.l("Creating socket...")
+                    val socket = Socket()
+                    socket.connect(InetSocketAddress(host, port), 5000)
+                    Log.l("socket: $socket")
+                    Log.l("Creating outStream...")
+                    outStream = DataOutputStream(socket.getOutputStream())
+                    Log.l("outStream: $outStream")
                     outStream.writeInt(byteArray[0]!!.size)
                     outStream.write(byteArray[0])
                     outStream.flush()
+//                    Log.l("Send bytes: " + String(byteArray[0]!!) + " to $host:$port")
+                    socket.close()
                 }
             } catch (e: java.lang.Exception) {
                 e.printStackTrace()
