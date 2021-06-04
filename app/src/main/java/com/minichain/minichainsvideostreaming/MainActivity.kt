@@ -19,6 +19,7 @@ import android.view.MenuItem
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.Toast
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import java.io.ByteArrayOutputStream
 import kotlin.system.exitProcess
 
@@ -85,6 +86,8 @@ class MainActivity : AppCompatActivity() {
             Log.l("Camera Preview Size: " + camera.parameters.previewSize.toString())
 
             camera.setDisplayOrientation(90)
+            camera.parameters.focusMode = Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE
+            camera.parameters.previewFrameRate = 24
             val cameraPreview = CameraPreview(this, camera)
             val preview: FrameLayout = this.findViewById(R.id.camera_preview)
             preview.addView(cameraPreview)
@@ -92,24 +95,31 @@ class MainActivity : AppCompatActivity() {
             val previewFormat = cameraPreview.mCamera.parameters.previewFormat
             val previewSize = cameraPreview.mCamera.parameters.previewSize
             cameraPreview.mCamera.setPreviewCallback { data, camera ->
-                // All bytes are in YUV format, therefore, to use the YUV helper functions, we are putting in a YUV object
-                Log.l("Preview format: $previewFormat")
-                val yuvImage = YuvImage(data, previewFormat, previewSize.width, previewSize.height, null)
-                val rect = Rect(0, 0, previewSize.width, previewSize.height)
-                val outputStream = ByteArrayOutputStream()
-                // Image has now been converted to the jpg format and bytes have been written to the outputStream object
-                yuvImage.compressToJpeg(rect, 80, outputStream)
-                imageByteArray = outputStream.toByteArray()
+                Thread {
+                    // All bytes are in YUV format, therefore, to use the YUV helper functions, we are putting in a YUV object
+                    Log.l("Preview format: $previewFormat")
+                    val yuvImage = YuvImage(data, previewFormat, previewSize.width, previewSize.height, null)
+                    val rect = Rect(0, 0, previewSize.width, previewSize.height)
+                    val outputStream = ByteArrayOutputStream()
+                    // Image has now been converted to the jpg format and bytes have been written to the outputStream object
+                    yuvImage.compressToJpeg(rect, 5, outputStream)
+                    imageByteArray = outputStream.toByteArray()
+                    sendCurrentFrameToService()
+                }.start()
             }
         }
 
         val floatingActionButton: View = findViewById(R.id.floating_action_button)
         floatingActionButton.setOnClickListener {
             Toast.makeText(this, "Floating Action Button Pressed!", Toast.LENGTH_SHORT).show()
-            val bundle = Bundle()
-            bundle.putByteArray("byteArray", imageByteArray)
-            sendBroadcast(BroadcastMessage.FRAME, bundle)
+//            sendCurrentFrameToService()
         }
+    }
+
+    private fun sendCurrentFrameToService() {
+        val bundle = Bundle()
+        bundle.putByteArray("byteArray", imageByteArray)
+        sendBroadcast(BroadcastMessage.FRAME, bundle)
     }
 
     private fun getCameraInstance(): Camera? {
@@ -179,7 +189,7 @@ class MainActivity : AppCompatActivity() {
             if (bundle != null) {
                 broadCastIntent.putExtras(bundle)
             }
-            sendBroadcast(broadCastIntent)
+            LocalBroadcastManager.getInstance(this).sendBroadcast(broadCastIntent)
         } catch (ex: java.lang.Exception) {
             ex.printStackTrace()
         }
@@ -211,7 +221,7 @@ class MainActivity : AppCompatActivity() {
             for (i in BroadcastMessage.values().indices) {
                 intentFilter.addAction(BroadcastMessage.values()[i].toString())
             }
-            registerReceiver(broadcastReceiver, intentFilter)
+            LocalBroadcastManager.getInstance(this).registerReceiver(broadcastReceiver, intentFilter)
         } catch (ex: java.lang.Exception) {
             ex.printStackTrace()
         }

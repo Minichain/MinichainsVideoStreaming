@@ -13,6 +13,7 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import java.io.DataOutputStream
 import java.net.InetSocketAddress
 import java.net.Socket
@@ -64,7 +65,6 @@ class MainService : Service() {
                         val tempArray: ByteArray = extras?.getByteArray("byteArray")!!
                         val sendBytesTask = SendBytesTask()
                         sendBytesTask.execute(tempArray)
-
                     } else {
                         Log.l("MainServiceLog: Unknown broadcast received. $broadcast")
                     }
@@ -82,7 +82,7 @@ class MainService : Service() {
                 intentFilter.addAction(BroadcastMessage.values()[i].toString())
             }
 
-            registerReceiver(broadcastReceiver, intentFilter)
+            LocalBroadcastManager.getInstance(this).registerReceiver(broadcastReceiver, intentFilter)
         } catch (ex: Exception) {
             ex.printStackTrace()
         }
@@ -92,27 +92,38 @@ class MainService : Service() {
      * ASYNCTASK
      **/
     private class SendBytesTask : AsyncTask<ByteArray?, Int?, Long?>() {
+        private val HOST = "192.168.1.46"
+        private val PORT = 8000
+        private var socket: Socket? = null
+
         override fun doInBackground(vararg byteArray: ByteArray?): Long {
-            Log.l("Async Task. Sending Bytes...")
+            Log.l("Async Task. Let's try to send some bytes.")
 
             val outStream: DataOutputStream?
 
             try {
                 if (byteArray[0] != null && byteArray.isNotEmpty()) {
-                    val host = "192.168.1.46"
-                    val port = 8000
-                    Log.l("Creating socket...")
-                    val socket = Socket()
-                    socket.connect(InetSocketAddress(host, port), 5000)
-                    Log.l("socket: $socket")
-                    Log.l("Creating outStream...")
-                    outStream = DataOutputStream(socket.getOutputStream())
-                    Log.l("outStream: $outStream")
-                    outStream.writeInt(byteArray[0]!!.size)
-                    outStream.write(byteArray[0])
-                    outStream.flush()
-//                    Log.l("Send bytes: " + String(byteArray[0]!!) + " to $host:$port")
-                    socket.close()
+                    if (socket == null) {
+                        Log.l("Creating socket...")
+                        socket = Socket()
+                        Log.l("Connecting socket...")
+                        socket!!.connect(InetSocketAddress(HOST, PORT), 5000)
+                    } else if (!socket!!.isConnected) {
+                        Log.l("Connecting socket...")
+                        socket!!.connect(InetSocketAddress(HOST, PORT), 5000)
+                    }
+
+                    if (socket != null && socket!!.isConnected) {
+                        Log.l("socket: $socket")
+                        Log.l("Creating outStream...")
+                        outStream = DataOutputStream(socket!!.getOutputStream())
+                        Log.l("outStream: $outStream")
+                        outStream.writeInt(byteArray[0]!!.size)
+                        outStream.write(byteArray[0])
+                        outStream.flush()
+//                        Log.l("Send bytes: " + String(byteArray[0]!!) + " to $host:$port")
+                        socket!!.close()
+                    }
                 }
             } catch (e: java.lang.Exception) {
                 e.printStackTrace()
