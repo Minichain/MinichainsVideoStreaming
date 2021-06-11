@@ -26,6 +26,19 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         tools:ignore="MissingConstraints"
+        android:layout_marginBottom="20dp"
+        />
+
+    <TextView
+        android:id="@+id/debug_text"
+        android:text="Debug Text"
+        android:textColor="@color/white"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        android:layout_marginTop="20dp"
+        android:layout_marginLeft="20dp"
         />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

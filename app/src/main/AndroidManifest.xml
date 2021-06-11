@@ -4,14 +4,20 @@
     package="com.minichain.minichainsvideostreaming"
     >
 
-    <uses-permission android:name="android.permission.CAMERA"/>
-    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.USB_PERMISSION" />
 
-    <uses-feature android:name="android.hardware.camera" android:required="true"/>
+    <uses-feature android:name="android.hardware.camera" android:required="true" />
+
+    <uses-feature android:name="android.hardware.usb.host" />
+    <uses-feature android:name="android.hardware.camera2" />
+    <uses-feature android:name="android.hardware.camera.any" />
+    <uses-feature android:name="android.hardware.camera.external" />
 
     <application
         android:allowBackup="true"
@@ -22,16 +28,28 @@
         android:theme="@style/Theme.MinichainVideoStreaming"
         >
 
-        <activity android:name="com.minichain.minichainsvideostreaming.MainActivity">
+        <activity android:name="com.minichain.minichainsvideostreaming.MainActivity" >
             <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-
-                <category android:name="android.intent.category.LAUNCHER"/>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_DETACHED" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_STATE" />
+            </intent-filter>
+
+            <meta-data android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" android:resource="@xml/device_filter" />
+            <meta-data android:name="android.hardware.usb.action.USB_DEVICE_DETACHED" android:resource="@xml/device_filter" />
+            <meta-data android:name="android.hardware.usb.action.USB_STATE" android:resource="@xml/device_filter" />
         </activity>
 
-        <service android:name="com.minichain.minichainsvideostreaming.MainService">
-        </service>
+        <service android:name="com.minichain.minichainsvideostreaming.MainService" />
     </application>
 
 </manifest>

@@ -7,9 +7,12 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.graphics.Rect
-import android.graphics.YuvImage
 import android.hardware.Camera
+import android.hardware.camera2.CameraManager
+import android.hardware.usb.UsbConstants
+import android.hardware.usb.UsbDevice
+import android.hardware.usb.UsbDeviceConnection
+import android.hardware.usb.UsbManager
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
@@ -18,14 +21,20 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import java.io.ByteArrayOutputStream
+import java.lang.StringBuilder
 import kotlin.system.exitProcess
 
 class MainActivity : AppCompatActivity() {
     private lateinit var broadcastReceiver: MainActivityBroadcastReceiver
     private lateinit var imageByteArray: ByteArray
+    private lateinit var debugTextView: TextView
+
+    private lateinit var usbDeviceConnection: UsbDeviceConnection
+    private lateinit var usbManager: UsbManager
+    private var usbDevice: UsbDevice? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -70,8 +79,6 @@ class MainActivity : AppCompatActivity() {
             applicationContext.startService(serviceIntent)
         }
 
-        registerMainActivityBroadcastReceiver()
-
         val itHasCamera = packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)
         if (itHasCamera) {
             Log.l("" + Camera.getNumberOfCameras() + " cameras detected!")
@@ -92,34 +99,87 @@ class MainActivity : AppCompatActivity() {
             val preview: FrameLayout = this.findViewById(R.id.camera_preview)
             preview.addView(cameraPreview)
 
-            val previewFormat = cameraPreview.mCamera.parameters.previewFormat
-            val previewSize = cameraPreview.mCamera.parameters.previewSize
-            cameraPreview.mCamera.setPreviewCallback { data, camera ->
-                Thread {
-                    // All bytes are in YUV format, therefore, to use the YUV helper functions, we are putting in a YUV object
-                    Log.l("Preview format: $previewFormat")
-                    val yuvImage = YuvImage(data, previewFormat, previewSize.width, previewSize.height, null)
-                    val rect = Rect(0, 0, previewSize.width, previewSize.height)
-                    val outputStream = ByteArrayOutputStream()
-                    // Image has now been converted to the jpg format and bytes have been written to the outputStream object
-                    yuvImage.compressToJpeg(rect, 5, outputStream)
-                    imageByteArray = outputStream.toByteArray()
-                    sendCurrentFrameToService()
-                }.start()
+            val previewFormat = camera.parameters.previewFormat
+            val previewSize = camera.parameters.previewSize
+            camera.setPreviewCallback { data, camera ->
+
             }
         }
 
         val floatingActionButton: View = findViewById(R.id.floating_action_button)
         floatingActionButton.setOnClickListener {
             Toast.makeText(this, "Floating Action Button Pressed!", Toast.LENGTH_SHORT).show()
-//            sendCurrentFrameToService()
+            sendBroadcast(BroadcastMessage.DEBUG)
         }
+
+        establishUsbConnection()
+
+        Thread {
+            while (true) {
+                Thread.sleep(1000)
+                this@MainActivity.runOnUiThread {
+                    updateDebugText()
+                }
+            }
+        }.start()
+    }
+
+    private fun establishUsbConnection() {
+        usbManager = getSystemService(Context.USB_SERVICE) as UsbManager
+        debugTextView = findViewById(R.id.debug_text)
+
+        val deviceList: HashMap<String, UsbDevice> = usbManager.deviceList
+        if (usbManager.deviceList.size > 0) {
+            usbDevice = deviceList.values.iterator().next()
+            if (usbDevice != null) {
+
+                setupConnection()
+//                usbDeviceConnection = usbManager.openDevice(usbDevice)
+            }
+        }
+    }
+
+    private fun setupConnection() {
+        for (i in 0 until usbDevice!!.interfaceCount step 1) {
+            val interfaceClass = usbDevice!!.getInterface(i).interfaceClass
+            Log.l("Interface class: " + interfaceClass)
+            if (interfaceClass == UsbConstants.USB_CLASS_CDC_DATA) {
+
+            }
+        }
+    }
+
+    private fun updateDebugText() {
+//        Log.l("Update debug text")
+
+        val stringBuilder = StringBuilder()
+        if (usbDevice != null) {
+            stringBuilder.append(usbManager.deviceList.size.toString() + " USB device connected.")
+            stringBuilder.append("\n")
+            stringBuilder.append("\nVendor Id: ").append(usbDevice!!.vendorId)
+            stringBuilder.append("\nProduct Id: ").append(usbDevice!!.productId)
+            stringBuilder.append("\nDevice Class: ").append(usbDevice!!.deviceClass)
+            stringBuilder.append("\nDevice Subclass: ").append(usbDevice!!.deviceSubclass)
+            stringBuilder.append("\nDevice Protocol: ").append(usbDevice!!.deviceProtocol)
+            stringBuilder.append("\n")
+        } else {
+            stringBuilder.append("No USB device connected.")
+        }
+
+        if (packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_EXTERNAL)) {
+            stringBuilder.append("\nSystem supports external camera!")
+        }
+
+        val cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        stringBuilder.append("\nThere are " + cameraManager.cameraIdList.size + " cameras available.")
+
+        debugTextView.text = stringBuilder.toString()
     }
 
     private fun sendCurrentFrameToService() {
         val bundle = Bundle()
         bundle.putByteArray("byteArray", imageByteArray)
-        sendBroadcast(BroadcastMessage.FRAME, bundle)
+//        sendBroadcast(BroadcastMessage.FRAME, bundle)
     }
 
     private fun getCameraInstance(): Camera? {
@@ -156,8 +216,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        Log.l("onDestroy $this")
         super.onDestroy()
+        Log.l("MainActivity: onDestroy $this")
         // If there is a Service running...
         val serviceIntent = Intent(applicationContext, MainService::class.java)
         applicationContext.stopService(serviceIntent)
@@ -182,7 +242,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun sendBroadcast(broadcastMessage: BroadcastMessage, bundle: Bundle?) {
-        Log.l("Sending Broadcast $broadcastMessage")
+//        Log.l("Sending Broadcast $broadcastMessage")
         try {
             val broadCastIntent = Intent()
             broadCastIntent.action = broadcastMessage.toString()
@@ -197,13 +257,13 @@ class MainActivity : AppCompatActivity() {
 
     inner class MainActivityBroadcastReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-//            Log.l("MainActivity:: Broadcast received. Context: " + context + ", intent:" + intent.action)
+            Log.l("MainActivity: Broadcast received. Context: " + context + ", intent:" + intent.action)
             try {
                 val broadcast = intent.action
                 val extras = intent.extras
                 if (broadcast != null) {
                     if (broadcast == BroadcastMessage.FRAME.toString()) {
-                        Log.l("MainActivity: Broadcast Received: $broadcast")
+//                        Log.l("MainActivity: Broadcast Received: $broadcast")
                     } else {
                         Log.l("MainActivity: Unknown broadcast received")
                     }
@@ -215,6 +275,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun registerMainActivityBroadcastReceiver() {
+        Log.l("MainActivity: Register Broadcast Receiver")
         broadcastReceiver = MainActivityBroadcastReceiver()
         try {
             val intentFilter = IntentFilter()
