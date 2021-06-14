@@ -13,18 +13,15 @@ import android.hardware.Camera
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.os.Build
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Process
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
-import android.widget.FrameLayout
-import android.widget.TextView
-import android.widget.Toast
+import android.widget.*
+import androidx.appcompat.app.AppCompatActivity
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import java.io.ByteArrayOutputStream
-import java.lang.StringBuilder
 import kotlin.system.exitProcess
 
 class MainActivity : AppCompatActivity() {
@@ -118,6 +115,25 @@ class MainActivity : AppCompatActivity() {
         floatingActionButton.setOnClickListener {
             Toast.makeText(this, "Floating Action Button Pressed!", Toast.LENGTH_SHORT).show()
             sendBroadcast(BroadcastMessage.START_STOP_STREAMING)
+        }
+
+        setupCamerasSpinner()
+    }
+
+    private fun setupCamerasSpinner() {
+        val camerasSpinner = findViewById<Spinner>(R.id.cameras_spinner)
+        val options = arrayOf("Front", "Back", "External")
+        val arrayAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, options)
+        arrayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        camerasSpinner.adapter = arrayAdapter
+        camerasSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parentView: AdapterView<*>?, selectedItemView: View?, position: Int, id: Long) {
+                Log.l("On item selected. Id: " + id)
+            }
+
+            override fun onNothingSelected(parentView: AdapterView<*>?) {
+
+            }
         }
     }
 
