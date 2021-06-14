@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.AsyncTask
 import android.os.Build
+import android.os.Bundle
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -21,6 +22,9 @@ import java.net.Socket
 
 class MainService : Service() {
     private lateinit var broadcastReceiver: MainServiceBroadcastReceiver
+    private var streaming: Boolean = false
+    private var byteArray: ByteArray? = null
+    private lateinit var updateActivityThread: Thread
 
     override fun onCreate() {
         super.onCreate()
@@ -36,6 +40,7 @@ class MainService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         Log.l("MainServiceLog: onDestroy $this")
+        updateActivityThread.interrupt()
         unregisterReceiver(broadcastReceiver)
         removeMainServiceNotification()
     }
@@ -46,6 +51,41 @@ class MainService : Service() {
         registerMainServiceBroadcastReceiver()
 
         createMainServiceNotification()
+
+        updateActivityThread = object : Thread() {
+            override fun run() {
+                while (!this.isInterrupted) {
+                    sleep(250)
+                    updateActivity()
+                }
+            }
+        }
+
+        updateActivityThread.start()
+    }
+
+    private fun updateActivity() {
+        val bundle = Bundle()
+        bundle.putBoolean("streaming", streaming)
+        sendBroadcast(BroadcastMessage.UPDATE_VIEWS, bundle)
+    }
+
+    private fun sendBroadcast(broadcastMessage: BroadcastMessage) {
+        sendBroadcast(broadcastMessage, null)
+    }
+
+    private fun sendBroadcast(broadcastMessage: BroadcastMessage, bundle: Bundle?) {
+        Log.l("Sending Broadcast $broadcastMessage")
+        try {
+            val broadCastIntent = Intent()
+            broadCastIntent.action = broadcastMessage.toString()
+            if (bundle != null) {
+                broadCastIntent.putExtras(bundle)
+            }
+            LocalBroadcastManager.getInstance(this).sendBroadcast(broadCastIntent)
+        } catch (ex: java.lang.Exception) {
+            ex.printStackTrace()
+        }
     }
 
     /**
@@ -59,14 +99,22 @@ class MainService : Service() {
                 val broadcast = intent.action
                 val extras = intent.extras
                 if (broadcast != null) {
-                    if (broadcast == BroadcastMessage.FRAME.toString()) {
-                        Log.l("MainServiceLog: Broadcast Received: $broadcast")
-//                        val tempArray: ByteArray = "hello".toByteArray()
-                        val tempArray: ByteArray = extras?.getByteArray("byteArray")!!
-                        val sendBytesTask = SendBytesTask()
-                        sendBytesTask.execute(tempArray)
-                    } else {
-                        Log.l("MainServiceLog: Unknown broadcast received. $broadcast")
+                    when (broadcast) {
+                        BroadcastMessage.FRAME.toString() -> {
+                            Log.l("MainServiceLog: Broadcast Received: $broadcast")
+                            byteArray = extras?.getByteArray("byteArray")!!
+                            if (streaming) {
+                                val sendBytesTask = SendBytesTask()
+                                sendBytesTask.execute(byteArray)
+                            }
+                        }
+                        BroadcastMessage.START_STOP_STREAMING.toString() -> {
+                            Log.l("MainServiceLog: Broadcast Received: $broadcast")
+                            streaming = !streaming
+                        }
+                        else -> {
+                            Log.l("MainServiceLog: Unknown broadcast received. $broadcast")
+                        }
                     }
                 }
             } catch (ex: Exception) {

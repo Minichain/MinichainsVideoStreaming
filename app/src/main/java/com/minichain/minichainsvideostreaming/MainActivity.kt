@@ -10,6 +10,8 @@ import android.content.pm.PackageManager
 import android.graphics.Rect
 import android.graphics.YuvImage
 import android.hardware.Camera
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraManager
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
@@ -18,14 +20,17 @@ import android.view.Menu
 import android.view.MenuItem
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import java.io.ByteArrayOutputStream
+import java.lang.StringBuilder
 import kotlin.system.exitProcess
 
 class MainActivity : AppCompatActivity() {
     private lateinit var broadcastReceiver: MainActivityBroadcastReceiver
     private lateinit var imageByteArray: ByteArray
+    private var streaming = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -112,7 +117,7 @@ class MainActivity : AppCompatActivity() {
         val floatingActionButton: View = findViewById(R.id.floating_action_button)
         floatingActionButton.setOnClickListener {
             Toast.makeText(this, "Floating Action Button Pressed!", Toast.LENGTH_SHORT).show()
-//            sendCurrentFrameToService()
+            sendBroadcast(BroadcastMessage.START_STOP_STREAMING)
         }
     }
 
@@ -136,8 +141,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        val id = item.itemId
-        return when (id) {
+        return when (item.itemId) {
             R.id.settings_option -> {
                 true
             }
@@ -202,16 +206,51 @@ class MainActivity : AppCompatActivity() {
                 val broadcast = intent.action
                 val extras = intent.extras
                 if (broadcast != null) {
-                    if (broadcast == BroadcastMessage.FRAME.toString()) {
-                        Log.l("MainActivity: Broadcast Received: $broadcast")
-                    } else {
-                        Log.l("MainActivity: Unknown broadcast received")
+                    when (broadcast) {
+                        BroadcastMessage.FRAME.toString() -> {
+                            Log.l("MainActivity: Broadcast Received: $broadcast")
+                        }
+                        BroadcastMessage.UPDATE_VIEWS.toString() -> {
+                            Log.l("MainActivity: Broadcast Received: $broadcast")
+                            updateViews(extras)
+                        }
+                        else -> {
+                            Log.l("MainActivity: Unknown broadcast received")
+                        }
                     }
                 }
             } catch (ex: java.lang.Exception) {
                 ex.printStackTrace()
             }
         }
+    }
+
+    private fun updateViews(extras: Bundle?) {
+        streaming = extras!!.getBoolean("streaming")
+        val stringBuilder = StringBuilder()
+        if (streaming) {
+            stringBuilder.append("Streaming in progress.")
+        } else {
+            stringBuilder.append("Streaming paused.")
+        }
+        val cameraManager = this.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        val cameraIdList = cameraManager.cameraIdList
+        if (cameraIdList.isNotEmpty()) {
+            stringBuilder.append("\n" + cameraIdList.size + " cameras detected.")
+            for (i in cameraIdList.indices step 1) {
+                val characteristics = cameraManager.getCameraCharacteristics(cameraIdList[i])
+                val lensFacing = characteristics.get(CameraCharacteristics.LENS_FACING)
+                stringBuilder.append("\nCamera " + i + ": ")
+                when (lensFacing) {
+                    0 -> stringBuilder.append("Facing back.")
+                    1 -> stringBuilder.append("Facing front.")
+                    else -> stringBuilder.append("External camera.")
+                }
+            }
+        } else {
+            stringBuilder.append("\nNo cameras detected.")
+        }
+        findViewById<TextView>(R.id.debug_text).text = stringBuilder.toString()
     }
 
     private fun registerMainActivityBroadcastReceiver() {
